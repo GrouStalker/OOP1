@@ -1,0 +1,88 @@
+import requests
+import json
+from IPython.display import display, Javascript
+
+class WikipediaAPI:
+    """Класс для работы с API Википедии."""
+
+    def __init__(self):
+        self.base_url = "https://ru.wikipedia.org/w/api.php"
+
+    def make_request(self, query):
+        """Делает запрос к API Википедии."""
+        params = {
+            "action": "query",
+            "list": "search",
+            "utf8": "",
+            "format": "json",
+            "srsearch": query,
+            "srlimit": 10  # Ограничиваем количество результатов
+        }
+        response = requests.get(self.base_url, params=params)
+        return response.json()
+
+    def parse_response(self, response):
+        """Парсит ответ от API и возвращает результаты поиска."""
+        return response.get("query", {}).get("search", [])
+
+
+class ResultDisplay:
+    """Класс для отображения результатов поиска."""
+
+    @staticmethod
+    def display_results(results):
+        """Выводит результаты поиска на экран."""
+        if not results:
+            print("Нет результатов для вашего запроса.")
+            return
+
+        print("Результаты поиска:")
+        for index, result in enumerate(results):
+            title = result['title']
+            snippet = result['snippet']
+            pageid = result['pageid']  # Получаем pageid для использования позже
+            print(f"{index + 1}. {title} - {snippet} (pageid: {pageid})")
+
+    @staticmethod
+    def open_article(pageid):
+        """Открывает выбранную статью в новой вкладке браузера."""
+        url = f"https://ru.wikipedia.org/w/index.php?curid={pageid}"
+        print(f"Открываем URL: {url}")  # Для отладки
+        display(Javascript(f"window.open('{url}', '_blank');"))
+
+
+class WikipediaSearch:
+    """Главный класс для управления поиском в Википедии."""
+
+    def __init__(self):
+        self.api = WikipediaAPI()
+        self.display = ResultDisplay()
+
+    def get_user_query(self):
+        """Считывает поисковый запрос от пользователя."""
+        return input("Введите поисковый запрос: ")
+
+    def run(self):
+        """Основной метод для запуска программы."""
+        query = self.get_user_query()
+        response = self.api.make_request(query)
+        
+        # Для отладки: выводим полный ответ от API
+        print("Ответ от API:", json.dumps(response, ensure_ascii=False, indent=4))
+
+        results = self.api.parse_response(response)
+        self.display.display_results(results)
+
+        if results:
+            choice = input("Выберите номер статьи для открытия (0 для выхода): ")
+            if choice.isdigit() and 0 < int(choice) <= len(results):
+                pageid = results[int(choice) - 1]['pageid']
+                print(f"Выбранный pageid: {pageid}")  # Для отладки
+                self.display.open_article(pageid)
+            else:
+                print("Некорректный выбор. Выход из программы.")
+
+
+if __name__ == "__main__":
+    wiki_search = WikipediaSearch()
+    wiki_search.run()
