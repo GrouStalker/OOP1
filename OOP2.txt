@@ -1,0 +1,112 @@
+import csv
+import xml.etree.ElementTree as ET
+import pandas as pd
+import os
+import time
+from google.colab import drive
+
+# Монтируем Google Диск
+drive.mount('/content/drive')
+
+class CSVFileLoader:
+    def __init__(self, file_path):
+        self.file_path = file_path
+
+    def load_data(self):
+        """Загружает данные из CSV файла в DataFrame."""
+        return pd.read_csv(self.file_path, sep=';')
+
+
+class XMLFileLoader:
+    def __init__(self, file_path):
+        self.file_path = file_path
+
+    def load_data(self):
+        """Загружает данные из XML файла в DataFrame."""
+        data = []
+        for event, elem in ET.iterparse(self.file_path, events=('end',)):
+            if elem.tag == 'item':
+                city = elem.get('city')
+                street = elem.get('street')
+                house = elem.get('house')
+                floor = int(elem.get('floor'))
+                data.append({'city': city, 'street': street, 'house': house, 'floor': floor})
+                elem.clear()  # Освобождаем память, очищая элементы
+        return pd.DataFrame(data)
+
+
+class DataAnalyzer:
+    def __init__(self, df):
+        self.df = df
+
+    def analyze_data(self):
+        """Анализирует данные и возвращает статистику."""
+        start_time = time.time()
+
+        # Статистика дублирующихся записей
+        duplicates = self.df.groupby(['city', 'street', 'house']).size()
+        duplicates = duplicates[duplicates > 1].reset_index(name='count')
+
+        # Статистика по количеству этажей в каждом городе
+        floors_count = self.df.groupby(['city', 'floor']).size().unstack(fill_value=0)
+
+        processing_time = time.time() - start_time
+        return duplicates, floors_count, processing_time
+
+
+class ResultPrinter:
+    @staticmethod
+    def print_results(duplicates, floors_count, processing_time):
+        """Выводит результаты анализа."""
+        if not duplicates.empty:
+            print("Дублирующиеся записи:")
+            print(duplicates)
+        else:
+            print("Дублирующихся записей не найдено.")
+
+        print("nКоличество зданий по этажности в каждом городе:")
+        for city, counts in floors_count.iterrows():
+            print("nГород: {}".format(city))
+            for floor, count in counts.items():
+                print("{}-этажные: {}".format(floor, count))
+
+        print("nВремя обработки файла: {:.4f} секунд.".format(processing_time))
+
+
+def main():
+    print("Добро пожаловать! Введите путь к файлу-справочнику (CSV/XML) или введите 'exit' для выхода.")
+
+    while True:
+        file_path = input("Введите путь к файлу-справочнику (CSV/XML) или введите 'exit' для выхода: ").strip()
+
+        if file_path.lower() == 'exit':
+            print("Завершение работы.")
+            break
+
+        # Проверка на существование файла
+        if not os.path.isfile(file_path):
+            print("Файл не найден. Попробуйте снова.")
+            continue
+
+        try:
+            # Определяем тип файла и загружаем данные
+            if file_path.lower().endswith('.csv'):
+                loader = CSVFileLoader(file_path)
+            elif file_path.lower().endswith('.xml'):
+                loader = XMLFileLoader(file_path)
+            else:
+                raise ValueError("Неподдерживаемый формат файла. Пожалуйста, используйте CSV или XML.")
+
+            df = loader.load_data()
+            analyzer = DataAnalyzer(df)
+            duplicates, floors_count, processing_time = analyzer.analyze_data()
+            ResultPrinter.print_results(duplicates, floors_count, processing_time)
+
+        except ValueError as ve:
+            print("Ошибка: {}".format(ve))
+        except Exception as e:
+            print("Произошла ошибка: {}".format(e))
+
+
+if __name__ == "__main__":
+    main()
