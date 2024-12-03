@@ -1,0 +1,768 @@
+import random
+import matplotlib.pyplot as plt
+from math import log2
+
+# Определение узла для бинарного дерева поиска
+class TreeNode:
+    def __init__(self, key):
+        self.left = None
+        self.right = None
+        self.val = key
+
+# Бинарное дерево поиска
+class BinarySearchTree:
+    def __init__(self):
+        self.root = None
+
+    def insert(self, key):
+        if self.root is None:
+            self.root = TreeNode(key)
+        else:
+            self._insert_rec(self.root, key)
+
+    def _insert_rec(self, node, key):
+        if key < node.val:
+            if node.left is None:
+                node.left = TreeNode(key)
+            else:
+                self._insert_rec(node.left, key)
+        else:
+            if node.right is None:
+                node.right = TreeNode(key)
+            else:
+                self._insert_rec(node.right, key)
+
+    def search(self, key):
+        return self._search_rec(self.root, key)
+
+    def _search_rec(self, node, key):
+        if node is None or node.val == key:
+            return node
+        if key < node.val:
+            return self._search_rec(node.left, key)
+        return self._search_rec(node.right, key)
+
+    def delete(self, key):
+        if self.search(key) is None:  # Проверка на существование ключа
+            print(f"Ключ {key} не найден для удаления.")
+            return
+        self.root = self._delete_rec(self.root, key)
+        print(f"Ключ {key} удален.")
+
+    def _delete_rec(self, node, key):
+        if node is None:
+            return node
+        if key < node.val:
+            node.left = self._delete_rec(node.left, key)
+        elif key > node.val:
+            node.right = self._delete_rec(node.right, key)
+        else:
+            if node.left is None:
+                return node.right
+            elif node.right is None:
+                return node.left
+            temp = self._min_value_node(node.right)
+            node.val = temp.val
+            node.right = self._delete_rec(node.right, temp.val)
+        return node
+
+    def _min_value_node(self, node):
+        current = node
+        while current.left is not None:
+            current = current.left
+        return current
+
+    def height(self):
+        return self._height_rec(self.root)
+
+    def _height_rec(self, node):
+        if node is None:
+            return 0
+        left_height = self._height_rec(node.left)
+        right_height = self._height_rec(node.right)
+        return max(left_height, right_height) + 1
+
+    def asymptotic_height(self, num_keys):
+        if num_keys == 0:
+            return 0
+        if num_keys <= 1:
+            return 1
+        return int(log2(num_keys)) + 1
+
+    def visualize(self):
+        if self.root is not None:
+            self._visualize(self.root)
+        else:
+            print("Дерево пустое.")
+
+    def _visualize(self, node, prefix="", is_left=True):
+        if node is not None:
+            print(prefix + ("|-- " if is_left else "\\-- ") + str(node.val))
+            self._visualize(node.left, prefix + ("|   " if is_left else "    "), True)
+            self._visualize(node.right, prefix + ("|   " if is_left else "    "), False)
+
+    def dfs_in_order(self):
+        """Обход в глубину (in-order)"""
+        return self._dfs_in_order_rec(self.root)
+
+    def _dfs_in_order_rec(self, node):
+        result = []
+        if node:
+            result = self._dfs_in_order_rec(node.left)
+            result.append(node.val)
+            result += self._dfs_in_order_rec(node.right)
+        return result
+
+    def dfs_pre_order(self):
+        """Обход в глубину (pre-order)"""
+        return self._dfs_pre_order_rec(self.root)
+
+    def _dfs_pre_order_rec(self, node):
+        result = []
+        if node:
+            result.append(node.val)
+            result += self._dfs_pre_order_rec(node.left)
+            result += self._dfs_pre_order_rec(node.right)
+        return result
+
+    def dfs_post_order(self):
+        """Обход в глубину (post-order)"""
+        return self._dfs_post_order_rec(self.root)
+
+    def _dfs_post_order_rec(self, node):
+        result = []
+        if node:
+            result += self._dfs_post_order_rec(node.left)
+            result += self._dfs_post_order_rec(node.right)
+            result.append(node.val)
+        return result
+
+    def bfs(self):
+        """Обход в ширину (BFS)"""
+        result = []
+        if not self.root:
+            return result
+
+        queue = [self.root]
+        while queue:
+            node = queue.pop(0)
+            result.append(node.val)
+            if node.left:
+                queue.append(node.left)
+            if node.right:
+                queue.append(node.right)
+        return result
+
+# Узел для AVL-дерева
+class AVLNode:
+    def __init__(self, key):
+        self.key = key
+        self.left = None
+        self.right = None
+        self.height = 1
+
+class AVLTree:
+    def __init__(self):
+        self.root = None
+
+    def insert(self, key):
+        self.root = self._insert(self.root, key)
+
+    def _insert(self, node, key):
+        if not node:
+            return AVLNode(key)
+
+        if key < node.key:
+            node.left = self._insert(node.left, key)
+        else:
+            node.right = self._insert(node.right, key)
+
+        # Обновляем высоту предка узла
+        node.height = 1 + max(self.get_height(node.left), self.get_height(node.right))
+
+        # Проверяем баланс
+        balance = self.get_balance(node)
+
+        # Если узел становится несбалансированным, то есть 4 случая
+        # Левый левый случай
+        if balance > 1 and key < node.left.key:
+            return self.rotate_right(node)
+        # Правый правый случай
+        if balance < -1 and key > node.right.key:
+            return self.rotate_left(node)
+        # Левый правый случай
+        if balance > 1 and key > node.left.key:
+            node.left = self.rotate_left(node.left)
+            return self.rotate_right(node)
+        # Правый левый случай
+        if balance < -1 and key < node.right.key:
+            node.right = self.rotate_right(node.right)
+            return self.rotate_left(node)
+
+        return node
+
+    def get_height(self, root):
+        if not root:
+            return 0
+        return root.height
+
+    def get_balance(self, root):
+        if not root:
+            return 0
+        return self.get_height(root.left) - self.get_height(root.right)
+
+    def balance(self, node):
+        balance = self.get_balance(node)
+
+        # Левый левый случай
+        if balance > 1 and node.left and node.left.key > node.key:
+            return self.right_rotate(node)
+
+        # Правый правый случай
+        if balance < -1 and node.right and node.right.key < node.key:
+            return self.left_rotate(node)
+
+        # Левый правый случай
+        if balance > 1 and node.left and node.left.key < node.key:
+            node.left = self.left_rotate(node.left)
+            return self.right_rotate(node)
+
+        # Правый левый случай
+        if balance < -1 and node.right and node.right.key > node.key:
+            node.right = self.right_rotate(node.right)
+            return self.left_rotate(node)
+
+        return node
+
+    def rotate_left(self, z):
+        y = z.right
+        T2 = y.left
+        y.left = z
+        z.right = T2
+        z.height = 1 + max(self.get_height(z.left), self.get_height(z.right))
+        y.height = 1 + max(self.get_height(y.left), self.get_height(y.right))
+        return y
+
+    def rotate_right(self, z):
+        y = z.left
+        T3 = y.right
+        y.right = z
+        z.left = T3
+        z.height = 1 + max(self.get_height(z.left), self.get_height(z.right))
+        y.height = 1 + max(self.get_height(y.left), self.get_height(y.right))
+        return y
+
+    def delete(self, root, key):
+        if self.search(root, key) is None:  # Проверка на существование ключа
+            print(f"Ключ {key} не найден для удаления.")
+            return root  # Добавляем return, чтобы выйти из метода
+        print(f"Ключ {key} удален.")
+        return self._delete(root, key)
+
+
+    def _delete(self, root, key):
+        if not root:
+            return root
+        elif key < root.key:
+            root.left = self._delete(root.left, key)
+        elif key > root.key:
+            root.right = self._delete(root.right, key)
+        else:
+            if root.left is None:
+                return root.right
+            elif root.right is None:
+                return root.left
+            temp = self.get_min_value_node(root.right)
+            root.key = temp.key
+            root.right = self._delete(root.right, temp.key)
+
+        root.height = 1 + max(self.get_height(root.left), self.get_height(root.right))
+        return self.balance(root)
+
+    def search(self, root, key):
+        if not root:
+            return None
+        if key < root.key:
+            return self.search(root.left, key)
+        elif key > root.key:
+            return self.search(root.right, key)
+        else:
+            return root
+
+    def get_min_value_node(self, node):
+        current = node
+        while current.left is not None:
+            current = current.left
+        return current
+
+    def visualize(self, root):
+        if root is not None:
+            self._visualize(root)
+        else:
+            print("Дерево пустое.")
+
+    def _visualize(self, node, prefix="", is_left=True):
+        if node is not None:
+            print(prefix + ("|-- " if is_left else "\\-- ") + str(node.key))
+            self._visualize(node.left, prefix + ("|   " if is_left else "    "), True)
+            self._visualize(node.right, prefix + ("|   " if is_left else "    "), False)
+
+# Узел для красно-черного дерева
+class RedBlackNode:
+    def __init__(self, key):
+        self.key = key
+        self.color = 'red'
+        self.left = None
+        self.right = None
+        self.parent = None
+
+class RedBlackTree:
+    def __init__(self):
+        self.NIL_LEAF = RedBlackNode(0)
+        self.NIL_LEAF.color = 'black'
+        self.root = self.NIL_LEAF
+
+    def insert(self, key):
+        new_node = RedBlackNode(key)
+        new_node.left = self.NIL_LEAF
+        new_node.right = self.NIL_LEAF
+        self._insert(new_node)
+
+    def _insert(self, new_node):
+        parent = None
+        current = self.root
+
+        while current != self.NIL_LEAF:
+            parent = current
+            if new_node.key < current.key:
+                current = current.left
+            else:
+                current = current.right
+
+        new_node.parent = parent
+        if parent is None:
+            self.root = new_node
+        elif new_node.key < parent.key:
+            parent.left = new_node
+        else:
+            parent.right = new_node
+
+        new_node.color = 'red'
+        self._fix_insert(new_node)
+
+    def _fix_insert(self, new_node):
+        while new_node != self.root and new_node.parent.color == 'red':
+            if new_node.parent == new_node.parent.parent.left:
+                uncle = new_node.parent.parent.right
+                if uncle.color == 'red':
+                    new_node.parent.color = 'black'
+                    uncle.color = 'black'
+                    new_node.parent.parent.color = 'red'
+                    new_node = new_node.parent.parent
+                else:
+                    if new_node == new_node.parent.right:
+                        new_node = new_node.parent
+                        self.left_rotate(new_node)
+                    new_node.parent.color = 'black'
+                    new_node.parent.parent.color = 'red'
+                    self.right_rotate(new_node.parent.parent)
+            else:
+                uncle = new_node.parent.parent.left
+                if uncle.color == 'red':
+                    new_node.parent.color = 'black'
+                    uncle.color = 'black'
+                    new_node.parent.parent.color = 'red'
+                    new_node = new_node.parent.parent
+                else:
+                    if new_node == new_node.parent.left:
+                        new_node = new_node.parent
+                        self.right_rotate(new_node)
+                    new_node.parent.color = 'black'
+                    new_node.parent.parent.color = 'red'
+                    self.left_rotate(new_node.parent.parent)
+
+        self.root.color = 'black'
+
+    def left_rotate(self, x):
+        y = x.right
+        x.right = y.left
+        if y.left != self.NIL_LEAF:
+            y.left.parent = x
+        y.parent = x.parent
+        if x.parent is None:
+            self.root = y
+        elif x == x.parent.left:
+            x.parent.left = y
+        else:
+            x.parent.right = y
+        y.left = x
+        x.parent = y
+
+    def right_rotate(self, x):
+        y = x.left
+        x.left = y.right
+        if y.right != self.NIL_LEAF:
+            y.right.parent = x
+        y.parent = x.parent
+        if x.parent is None:
+            self.root = y
+        elif x == x.parent.right:
+            x.parent.right = y
+        else:
+            x.parent.left = y
+        y.right = x
+        x.parent = y
+
+    def search(self, key):
+        return self._search(self.root, key)
+
+    def _search(self, node, key):
+        if node == self.NIL_LEAF:
+            return None  # Возвращаем None, если элемент не найден
+        if key == node.key:
+            return node
+        if key < node.key:
+            return self._search(node.left, key)
+        return self._search(node.right, key)
+
+    def delete(self, key):
+        if self.search(key) is None:  # Проверка на существование ключа
+            print(f"Ключ {key} не найден для удаления.")
+            return
+        self._delete(self.root, key)
+        print(f"Ключ {key} удален.")
+
+    def _delete(self, node, key):
+        z = self.NIL_LEAF
+        while node != self.NIL_LEAF:
+            if node.key == key:
+                z = node
+            if node.key <= key:
+                node = node.right
+            else:
+                node = node.left
+
+        if z == self.NIL_LEAF:
+            print("Ключ не найден.")
+            return
+
+        y = z
+        y_original_color = y.color
+        if z.left == self.NIL_LEAF:
+            x = z.right
+            self._transplant(z, z.right)
+        elif z.right == self.NIL_LEAF:
+            x = z.left
+            self._transplant(z, z.left)
+        else:
+            y = self.get_min_value_node(z.right)
+            y_original_color = y.color
+            x = y.right
+            if y.parent == z:
+                x.parent = y
+            else:
+                self._transplant(y, y.right)
+                y.right = z.right
+                y.right.parent = y
+
+            self._transplant(z, y)
+            y.left = z.left
+            y.left.parent = y
+            y.color = z.color
+
+        if y_original_color == 'black':
+            self._fix_delete(x)
+
+    def _transplant(self, u, v):
+        if u.parent is None:
+            self.root = v
+        elif u == u.parent.left:
+            u.parent.left = v
+        else:
+            u.parent.right = v
+        v.parent = u.parent
+
+    def _fix_delete(self, x):
+        while x != self.root and x.color == 'black':
+            if x == x.parent.left:
+                w = x.parent.right
+                if w.color == 'red':
+                    w.color = 'black'
+                    x.parent.color = 'red'
+                    self.left_rotate(x.parent)
+                    w = x.parent.right
+
+                if w.left.color == 'black' and w.right.color == 'black':
+                    w.color = 'red'
+                    x = x.parent
+                else:
+                    if w.right.color == 'black':
+                        w.left.color = 'black'
+                        w.color = 'red'
+                        self.right_rotate(w)
+                        w = x.parent.right
+
+                    w.color = x.parent.color
+                    x.parent.color = 'black'
+                    w.right.color = 'black'
+                    self.left_rotate(x.parent)
+                    x = self.root
+            else:
+                w = x.parent.left
+                if w.color == 'red':
+                    w.color = 'black'
+                    x.parent.color = 'red'
+                    self.right_rotate(x.parent)
+                    w = x.parent.left
+
+                if w.right.color == 'black' and w.left.color == 'black':
+                    w.color = 'red'
+                    x = x.parent
+                else:
+                    if w.left.color == 'black':
+                        w.right.color = 'black'
+                        w.color = 'red'
+                        self.left_rotate(w)
+                        w = x.parent.left
+
+                    w.color = x.parent.color
+                    x.parent.color = 'black'
+                    w.left.color = 'black'
+                    self.right_rotate(x.parent)
+                    x = self.root
+        x.color = 'black'
+
+    def get_min_value_node(self, node):
+        while node.left != self.NIL_LEAF:
+            node = node.left
+        return node
+
+    def height(self):
+        return self._height_rec(self.root)
+
+    def _height_rec(self, node):
+        if node == self.NIL_LEAF:
+            return 0
+        left_height = self._height_rec(node.left)
+        right_height = self._height_rec(node.right)
+        return max(left_height, right_height) + 1
+
+    def visualize(self, node):
+        if node is not None:
+            self._visualize(node)
+        else:
+            print("Дерево пустое.")
+
+    def _visualize(self, node, prefix="", is_left=True):
+        if node != self.NIL_LEAF:
+            print(prefix + ("|-- " if is_left else "\\-- ") + str(node.key) + " (" + node.color + ")")
+            self._visualize(node.left, prefix + ("|   " if is_left else "    "), True)
+            self._visualize(node.right, prefix + ("|   " if is_left else "    "), False)
+
+# Функция для генерации случайных ключей
+def generate_random_keys(num_keys, key_range=(1, 100)):
+    return random.sample(range(key_range[0], key_range[1]), num_keys)
+
+# Функция для генерации монотонно возрастающих ключей
+def generate_sorted_keys(num_keys, start=1):
+    return list(range(start, start + num_keys))
+
+# Функция для инициализации деревьев
+def initialize_trees(bst, avl, rbt, num_keys=10):
+    bst_keys = generate_random_keys(num_keys)  # Генерация случайных ключей для бинарного дерева
+    avl_keys = generate_sorted_keys(num_keys)   # Генерация отсортированных ключей для AVL-дерева
+    rbt_keys = avl_keys                           # Красно-черное дерево также получает отсортированные ключи
+
+    print("Случайные ключи для бинарного дерева поиска:", bst_keys)
+    for key in bst_keys:
+        bst.insert(key)
+
+    avl_root = None
+    print("Монотонно возрастающие ключи для AVL и красно-черного дерева:", avl_keys)
+    for key in avl_keys:
+        avl_root = avl.insert(avl_root, key)  # Обновляем корень AVL-дерева
+        rbt.insert(key)
+
+    return avl_root  # Вернуть корень AVL-дерева
+
+def test_tree_heights_random(num_keys):
+    bst_heights = []
+    avl_heights = []
+    rbt_heights = []
+
+    for _ in range(num_keys):
+        keys = random.sample(range(num_keys * 10), num_keys)  # Генерация случайных ключей
+
+        bst = BinarySearchTree()
+        avl = AVLTree()
+        rbt = RedBlackTree()
+
+        for key in keys:
+            bst.insert(key)
+            avl.insert(key)  # Теперь просто передаем ключ
+            rbt.insert(key)
+
+        bst_heights.append(bst.height())
+        avl_heights.append(avl.get_height(avl.root))  # Получаем высоту через корень
+        rbt_heights.append(rbt.height())
+
+    return bst_heights, avl_heights, rbt_heights
+
+def test_tree_heights_sorted(num_keys):
+    bst_heights = []
+    avl_heights = []
+    rbt_heights = []
+
+    for i in range(num_keys):
+        keys = list(range(num_keys))  # Монотонно возрастающие ключи
+        bst = BinarySearchTree()
+        avl = AVLTree()
+        rbt = RedBlackTree()
+
+        for key in keys:
+            bst.insert(key)
+            avl.insert(key)
+            rbt.insert(key)
+
+        bst_heights.append(bst.height())
+        avl_heights.append(avl.height())
+        rbt_heights.append(rbt.height())
+
+    return bst_heights, avl_heights, rbt_heights
+
+# Функция для визуализации результатов
+def plot_heights(num_keys):
+    bst = BinarySearchTree()
+    bst_heights, avl_heights, rbt_heights = test_tree_heights_random(num_keys)
+
+    # Создаем массив асимптотических высот
+    bst_asymptotic_heights = [bst.asymptotic_height(i) for i in range(num_keys)]
+
+    plt.figure(figsize=(12, 6))
+    plt.plot(range(num_keys), bst_heights, label='Высота бинарного дерева поиска (случайные ключи)', color='blue')
+    plt.plot(range(num_keys), bst_asymptotic_heights, label='Асимптотическая высота БДП', color='cyan', linestyle='--')
+    plt.plot(range(num_keys), avl_heights, label='Высота AVL-дерева (возрастающие ключи)', color='green')
+    plt.plot(range(num_keys), rbt_heights, label='Высота красно-черного дерева (возрастающие ключи)', color='red')
+    plt.xlabel('Количество ключей')
+    plt.ylabel('Высота дерева')
+    plt.title('Высота деревьев в зависимости от количества ключей (случайные ключи)')
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+    # Второй график для монотонно возрастающих ключей
+    bst_heights_sorted, avl_heights_sorted, rbt_heights_sorted = test_tree_heights_sorted(num_keys)
+
+    plt.figure(figsize=(12, 6))
+    plt.plot(range(num_keys), bst_heights_sorted, label='Высота бинарного дерева поиска (возрастающие ключи)', color='blue')
+    plt.plot(range(num_keys), avl_heights_sorted, label='Высота AVL-дерева (возрастающие ключи)', color='green')
+    plt.plot(range(num_keys), rbt_heights_sorted, label='Высота красно-черного дерева (возрастающие ключи)', color='red')
+    plt.xlabel('Количество ключей')
+    plt.ylabel('Высота дерева')
+    plt.title('Высота деревьев в зависимости от количества ключей (возрастающие ключи)')
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+# Запуск теста с 100 ключами
+plot_heights(1000)
+
+def get_valid_input(prompt):
+    while True:
+        user_input = input(prompt)
+        if user_input.isdigit():
+            return int(user_input)
+        else:
+            print("Ошибка: ввод должен содержать только числа. Пожалуйста, попробуйте снова.")
+
+def get_valid_choice(prompt, valid_choices):
+    while True:
+        choice = input(prompt)
+        if choice in valid_choices:
+            return choice
+        else:
+            print("Ошибка: неверный выбор. Пожалуйста, попробуйте снова.")
+
+def main():
+    bst = BinarySearchTree()
+    avl = AVLTree()
+    rbt = RedBlackTree()
+
+    avl_root = None  # Инициализация корня AVL-дерева
+
+    # Инициализация деревьев с 10 случайными элементами
+    avl_root = initialize_trees(bst, avl, rbt, num_keys=10)
+
+    while True:
+        print("\nВыберите дерево:")
+        print("1. Бинарное дерево поиска")
+        print("2. AVL-дерево")
+        print("3. Красно-черное дерево")
+        print("0. Выход")
+
+        choice = get_valid_choice("Введите номер дерева: ", ['0', '1', '2', '3'])
+
+        if choice == '0':
+            break
+
+        while True:
+            print("\nВыберите операцию:")
+            print("1. Вставка")
+            print("2. Поиск")
+            print("3. Удаление")
+            print("4. Визуализация")
+            print("5. Обход (DFS и BFS) для бинарного дерева поиска")
+            print("0. Вернуться к выбору дерева")
+
+            operation = get_valid_choice("Введите номер операции: ", ['0', '1', '2', '3', '4', '5'])
+
+            if operation == '0':
+                break
+
+            key = None
+            if operation in ['1', '2', '3']:
+                key = get_valid_input("Введите ключ: ")
+
+            if choice == '1':  # Бинарное дерево поиска
+                if operation == '1':
+                    bst.insert(key)
+                    print(f"Ключ {key} вставлен.")
+                elif operation == '2':
+                    result = bst.search(key)
+                    print(f"Ключ {key} {'найден' if result else 'не найден'}.")
+                elif operation == '3':
+                    bst.delete(key)
+                elif operation == '4':
+                    bst.visualize()
+                elif operation in ['5']:
+                    print("DFS in-order:", bst.dfs_in_order())
+                    print("DFS pre-order:", bst.dfs_pre_order())
+                    print("DFS post-order:", bst.dfs_post_order())
+                    print("BFS:", bst.bfs())
+
+            elif choice == '2':  # AVL-дерево
+                if operation == '1':
+                    avl_root = avl.insert(avl_root, key)
+                    print(f"Ключ {key} вставлен.")
+                elif operation == '2':
+                    result = avl.search(avl_root, key)
+                    print(f"Ключ {key} {'найден' if result else 'не найден'}.")
+                elif operation == '3':
+                    avl_root = avl.delete(avl_root, key)
+                elif operation == '4':
+                    avl.visualize(avl_root)
+
+            elif choice == '3':  # Красно-черное дерево
+                if operation == '1':
+                    rbt.insert(key)
+                    print(f"Ключ {key} вставлен.")
+                elif operation == '2':
+                    result = rbt.search(key)
+                    print(f"Ключ {key} {'найден' if result else 'не найден'}.")
+                elif operation == '3':
+                    rbt.delete(key)
+                elif operation == '4':
+                    rbt.visualize(rbt.root)
+
+if __name__ == "__main__":
+    main()
