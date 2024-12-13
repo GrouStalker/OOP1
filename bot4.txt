@@ -1,0 +1,222 @@
+import logging
+import telebot
+from telebot import types
+
+# Включаем логирование
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Создайте экземпляр бота
+bot = telebot.TeleBot("7946754830:AAFlSpAvpqXbpZICp5SOV7FUIIXEm1P6skA")
+
+# Глобальный словарь для хранения конфигураторов пользователей
+user_configurators = {}
+
+class CarConfigurator:
+    def __init__(self, chat_id):
+        self.chat_id = chat_id
+        self.user_data = {}
+        self.current_stage = None
+
+    def start(self):
+        self.user_data[self.chat_id] = {}
+        self.current_stage = BodySelection(self)
+        self.current_stage.send_message()
+
+class Stage:
+    def __init__(self, configurator):
+        self.configurator = configurator
+
+    def send_message(self):
+        raise NotImplementedError
+
+class BodySelection(Stage):
+    def send_message(self):
+        keyboard = types.InlineKeyboardMarkup()
+        bodies = ["Джип", "Седан", "Кроссовер"]
+        for body in bodies:
+            keyboard.add(types.InlineKeyboardButton(body, callback_data=f'body_{body}'))
+        bot.send_message(self.configurator.chat_id, "Выберите кузов:", reply_markup=keyboard)
+
+class EngineSelection(Stage):
+    def send_message(self):
+        keyboard = types.InlineKeyboardMarkup()
+        engines = ["Бензиновый", "Дизельный", "Электрический"]
+        for engine in engines:
+            keyboard.add(types.InlineKeyboardButton(engine, callback_data=f'engine_{engine}'))
+        bot.send_message(self.configurator.chat_id, "Выберите двигатель:", reply_markup=keyboard)
+
+class TransmissionSelection(Stage):
+    def send_message(self):
+        keyboard = types.InlineKeyboardMarkup()
+        transmissions = ["Механическая", "Автоматическая"]
+        for transmission in transmissions:
+            keyboard.add(types.InlineKeyboardButton(transmission, callback_data=f'transmission_{transmission}'))
+        bot.send_message(self.configurator.chat_id, "Выберите трансмиссию:", reply_markup=keyboard)
+
+class DriveSelection(Stage):
+    def send_message(self):
+        keyboard = types.InlineKeyboardMarkup()
+        drives = ["Передний", "Задний", "Полный"]
+        for drive in drives:
+            keyboard.add(types.InlineKeyboardButton(drive, callback_data=f'drive_{drive}'))
+        bot.send_message(self.configurator.chat_id, "Выберите привод:", reply_markup=keyboard)
+
+class PackageSelection(Stage):
+    def send_message(self):
+        keyboard = types.InlineKeyboardMarkup()
+        packages = ["Базовая", "Спорт", "Люкс"]
+        for package in packages:
+            keyboard.add(types.InlineKeyboardButton(package, callback_data=f'package_{package}'))
+        bot.send_message(self.configurator.chat_id, "Выберите комплектацию:", reply_markup=keyboard)
+
+class OptionsSelection(Stage):
+    def send_message(self):
+        keyboard = types.InlineKeyboardMarkup()
+        options = ["Климат-контроль", "Навигация", "Камера заднего вида"]
+        for option in options:
+            keyboard.add(types.InlineKeyboardButton(option, callback_data=f'option_{option}'))
+        bot.send_message(self.configurator.chat_id, "Выберите опции:", reply_markup=keyboard)
+
+class AccessoriesSelection(Stage):
+    def send_message(self):
+        keyboard = types.InlineKeyboardMarkup()
+        accessories = ["Коврики", "Сумка для инструментов", "Набор для мытья"]
+        for accessory in accessories:
+            keyboard.add(types.InlineKeyboardButton(accessory, callback_data=f'accessory_{accessory}'))
+        bot.send_message(self.configurator.chat_id, "Выберите аксессуары:", reply_markup=keyboard)
+
+@bot.message_handler(commands=['start'])
+def start(message):
+    configurator = CarConfigurator(message.chat.id)
+    user_configurators[message.chat.id] = configurator  # Сохраняем конфигуратор в глобальном словаре
+    configurator.start()
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('body_'))
+def choose_body(call):
+    # Проверяем, существует ли конфигуратор для данного пользователя
+    if call.from_user.id not in user_configurators:
+        bot.send_message(call.message.chat.id, "Пожалуйста, начните конфигурацию с помощью команды /start.")
+        return
+
+    body = call.data.split('_')[1]
+    configurator = user_configurators[call.from_user.id]  # Получаем конфигуратор из глобального словаря
+    configurator.user_data[call.from_user.id]['body'] = body
+    bot.answer_callback_query(call.id)
+    
+    configurator.current_stage = EngineSelection(configurator)
+    configurator.current_stage.send_message()
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('engine_'))
+def choose_engine(call):
+    # Проверяем наличие конфигуратора
+    if call.from_user.id not in user_configurators:
+        bot.send_message(call.message.chat.id, "Пожалуйста, начните конфигурацию с помощью команды /start.")
+        return
+
+    engine = call.data.split('_')[1]
+    configurator = user_configurators[call.from_user.id]
+    configurator.user_data[call.from_user.id]['engine'] = engine
+    bot.answer_callback_query(call.id)
+
+    configurator.current_stage = TransmissionSelection(configurator)
+    configurator.current_stage.send_message()
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('transmission_'))
+def choose_transmission(call):
+    # Проверяем наличие конфигуратора
+    if call.from_user.id not in user_configurators:
+        bot.send_message(call.message.chat.id, "Пожалуйста, начните конфигурацию с помощью команды /start.")
+        return
+
+    transmission = call.data.split('_')[1]
+    configurator = user_configurators[call.from_user.id]
+    configurator.user_data[call.from_user.id]['transmission'] = transmission
+    bot.answer_callback_query(call.id)
+
+    configurator.current_stage = DriveSelection(configurator)
+    configurator.current_stage.send_message()
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('drive_'))
+def choose_drive(call):
+    # Проверяем наличие конфигуратора
+    if call.from_user.id not in user_configurators:
+        bot.send_message(call.message.chat.id, "Пожалуйста, начните конфигурацию с помощью команды /start.")
+        return
+
+    drive = call.data.split('_')[1]
+    configurator = user_configurators[call.from_user.id]
+    configurator.user_data[call.from_user.id]['drive'] = drive
+    bot.answer_callback_query(call.id)
+
+    configurator.current_stage = PackageSelection(configurator)
+    configurator.current_stage.send_message()
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('package_'))
+def choose_package(call):
+    # Проверяем наличие конфигуратора
+    if call.from_user.id not in user_configurators:
+        bot.send_message(call.message.chat.id, "Пожалуйста, начните конфигурацию с помощью команды /start.")
+        return
+
+    package = call.data.split('_')[1]
+    configurator = user_configurators[call.from_user.id]
+    configurator.user_data[call.from_user.id]['package'] = package
+    bot.answer_callback_query(call.id)
+
+    configurator.current_stage = OptionsSelection(configurator)
+    configurator.current_stage.send_message()
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('option_'))
+def choose_options(call):
+    # Проверяем наличие конфигуратора
+    if call.from_user.id not in user_configurators:
+        bot.send_message(call.message.chat.id, "Пожалуйста, начните конфигурацию с помощью команды /start.")
+        return
+
+    option = call.data.split('_')[1]
+    configurator = user_configurators[call.from_user.id]
+    configurator.user_data[call.from_user.id]['options'] = option
+    bot.answer_callback_query(call.id)
+
+    configurator.current_stage = AccessoriesSelection(configurator)
+    configurator.current_stage.send_message()
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('accessory_'))
+def choose_accessories(call):
+    # Проверяем наличие конфигуратора
+    if call.from_user.id not in user_configurators:
+        bot.send_message(call.message.chat.id, "Пожалуйста, начните конфигурацию с помощью команды /start.")
+        return
+
+    accessory = call.data.split('_')[1]
+    configurator = user_configurators[call.from_user.id]
+    configurator.user_data[call.from_user.id]['accessories'] = accessory
+    bot.answer_callback_query(call.id)
+
+    config = configurator.user_data[call.from_user.id]
+    configuration_message = (
+        f"Вы завершили конфигурацию автомобиля:\n"
+        f"Кузов: {config['body']}\n"
+        f"Двигатель: {config['engine']}\n"
+        f"Трансмиссия: {config['transmission']}\n"
+        f"Привод: {config['drive']}\n"
+        f"Комплектация: {config['package']}\n"
+        f"Опции: {config['options']}\n"
+        f"Аксессуары: {config['accessories']}\n"
+    )
+    bot.edit_message_text(text=configuration_message, chat_id=call.message.chat.id, message_id=call.message.message_id)
+
+@bot.message_handler(commands=['cancel'])
+def cancel(message):
+    bot.send_message(message.chat.id, 'Конфигурация отменена. Чтобы начать заново, введите /start.')
+
+@bot.message_handler(func=lambda message: True)  # Обработчик для всех текстовых сообщений
+def handle_text(message):
+    bot.send_message(message.chat.id, "Некорректный ввод. Пожалуйста, используйте команды или кнопки для выбора.")
+
+def main():
+    bot.polling(none_stop=True)
+
+if __name__ == '__main__':
+    main()
